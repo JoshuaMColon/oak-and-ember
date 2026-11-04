@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f3eee6;
+  --surface: #faf6f1;
+  --ink: #241c15;
+  --muted: #5c5148;
+  --line: #e3d8cb;
+  --oak: #7c5432;
+  --ember: #c2582a;
+  --ember-deep: #8d3c16;
+  --cream: #f7f1e8;
+  --good: #1f6b3a;
+  --warn: #8a5a12;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #14110e;
+  --surface: #211c18;
+  --ink: #f3ece4;
+  --muted: #c3b4a6;
+  --line: #3a312a;
+  --oak: #e0b48a;
+  --ember: #e4895a;
+  --ember-deep: #c46a38;
+  --cream: #f7f1e8;
+  --good: #8dcea8;
+  --warn: #e3c07a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-oak: var(--oak);
+  --color-ember: var(--ember);
+  --color-ember-deep: var(--ember-deep);
+  --color-cream: var(--cream);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: #e7c3b0;
+  color: #241c15;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember-deep);
+  outline-offset: 3px;
+}
+
+.dark :focus-visible {
+  outline-color: var(--ember);
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 80;
+  border-radius: 999px;
+  background: var(--ember-deep);
+  color: white;
+  padding: 0.6rem 1rem;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
