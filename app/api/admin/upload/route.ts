@@ -27,11 +27,11 @@ export async function POST(request: Request) {
   const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const path = `${crypto.randomUUID()}.${extension}`;
   const bytes = Buffer.from(await file.arrayBuffer());
-  const { error } = await supabase.storage.from("product-images").upload(path, bytes, {
+  const { error } = await supabase.storage.from("oak-products").upload(path, bytes, {
     contentType: file.type,
     upsert: false,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+  const { data } = supabase.storage.from("oak-products").getPublicUrl(path);
   return NextResponse.json({ url: data.publicUrl });
 }

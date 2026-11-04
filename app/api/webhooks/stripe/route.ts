@@ -27,22 +27,27 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    await recordOrder(session);
+    const stored = await recordOrder(session);
+    if (!stored) {
+      // Without the service role key the order cannot be written. Answer 503 so
+      // Stripe retries once the key is configured, instead of dropping the order.
+      return NextResponse.json({ error: "Order storage is not configured." }, { status: 503 });
+    }
   }
 
   return NextResponse.json({ received: true });
 }
 
-async function recordOrder(session: Stripe.Checkout.Session) {
+async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
   const supabase = createServiceSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
 
   const { data: existing } = await supabase
-    .from("orders")
+    .from("oak_orders")
     .select("id")
     .eq("stripe_session_id", session.id)
     .maybeSingle();
-  if (existing) return;
+  if (existing) return true;
 
   const metadata = session.metadata ?? {};
   const email = session.customer_email || metadata.email || "";
@@ -54,11 +59,11 @@ async function recordOrder(session: Stripe.Checkout.Session) {
     })
     .filter((item) => item.variantId && item.quantity > 0);
 
-  if (!email || items.length === 0) return;
+  if (!email || items.length === 0) return true;
 
   const { data: variants } = await supabase
-    .from("product_variants")
-    .select("id, price_cents, finish, material, color, stock, product:products(name)")
+    .from("oak_product_variants")
+    .select("id, price_cents, finish, material, color, stock, product:oak_products(name)")
     .in("id", items.map((item) => item.variantId));
 
   const lines = items.flatMap((item) => {
@@ -81,7 +86,7 @@ async function recordOrder(session: Stripe.Checkout.Session) {
   const publicId = publicOrderId();
 
   const { data: order, error } = await supabase
-    .from("orders")
+    .from("oak_orders")
     .insert({
       public_id: publicId,
       user_id: metadata.userId || null,
@@ -97,9 +102,9 @@ async function recordOrder(session: Stripe.Checkout.Session) {
     .select("id")
     .single();
 
-  if (error || !order) return;
+  if (error || !order) return false;
 
-  await supabase.from("order_items").insert(
+  await supabase.from("oak_order_items").insert(
     lines.map((line) => ({
       order_id: order.id,
       variant_id: line.variantId,
@@ -112,7 +117,7 @@ async function recordOrder(session: Stripe.Checkout.Session) {
 
   for (const line of lines) {
     await supabase
-      .from("product_variants")
+      .from("oak_product_variants")
       .update({ stock: Math.max(0, line.stock - line.quantity) })
       .eq("id", line.variantId);
   }
@@ -142,4 +147,5 @@ async function recordOrder(session: Stripe.Checkout.Session) {
   } catch {
     // Email failure should not make Stripe retry the paid event forever.
   }
+  return true;
 }

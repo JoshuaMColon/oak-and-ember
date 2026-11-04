@@ -42,7 +42,7 @@ export async function saveProduct(input: ProductInput) {
   const gate = await adminClient();
   if (!gate.supabase) return { error: gate.error };
   const supabase = gate.supabase;
-  const { data: category } = await supabase.from("categories").select("id").eq("slug", input.category).maybeSingle();
+  const { data: category } = await supabase.from("oak_categories").select("id").eq("slug", input.category).maybeSingle();
   if (!category) return { error: "Unknown category." };
   const priceCents = Math.min(...input.variants.map((variant) => dollarsToCents(variant.price)));
   const keywords = [
@@ -64,17 +64,17 @@ export async function saveProduct(input: ProductInput) {
 
   const productId = input.id
     ? input.id
-    : (await supabase.from("products").insert(payload).select("id").single()).data?.id;
+    : (await supabase.from("oak_products").insert(payload).select("id").single()).data?.id;
 
   if (input.id) {
-    const { error } = await supabase.from("products").update(payload).eq("id", input.id);
+    const { error } = await supabase.from("oak_products").update(payload).eq("id", input.id);
     if (error) return { error: error.message };
   }
   if (!productId) return { error: "Could not save the product." };
 
   if (input.imageUrl) {
-    await supabase.from("product_images").delete().eq("product_id", productId);
-    await supabase.from("product_images").insert({
+    await supabase.from("oak_product_images").delete().eq("product_id", productId);
+    await supabase.from("oak_product_images").insert({
       product_id: productId,
       url: input.imageUrl,
       alt: input.imageAlt || input.name,
@@ -83,8 +83,8 @@ export async function saveProduct(input: ProductInput) {
     });
   }
 
-  await supabase.from("product_variants").delete().eq("product_id", productId);
-  const { error: variantError } = await supabase.from("product_variants").insert(
+  await supabase.from("oak_product_variants").delete().eq("product_id", productId);
+  const { error: variantError } = await supabase.from("oak_product_variants").insert(
     input.variants.map((variant, index) => ({
       product_id: productId,
       sku: `${input.slug}-${index + 1}`.toUpperCase(),
@@ -106,7 +106,7 @@ export async function saveProduct(input: ProductInput) {
 export async function deleteProduct(id: string) {
   const gate = await adminClient();
   if (!gate.supabase) return { error: gate.error };
-  const { error } = await gate.supabase.from("products").delete().eq("id", id);
+  const { error } = await gate.supabase.from("oak_products").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/admin/products");
   return { error: null };
@@ -116,7 +116,7 @@ export async function updateVariantStock(variantId: string, stock: number) {
   const gate = await adminClient();
   if (!gate.supabase) return { error: gate.error };
   const { error } = await gate.supabase
-    .from("product_variants")
+    .from("oak_product_variants")
     .update({ stock: Math.max(0, Math.floor(stock)) })
     .eq("id", variantId);
   if (error) return { error: error.message };
@@ -127,7 +127,7 @@ export async function updateVariantStock(variantId: string, stock: number) {
 export async function updateOrderStatus(publicId: string, status: OrderStatus) {
   const gate = await adminClient();
   if (!gate.supabase) return { error: gate.error };
-  const { error } = await gate.supabase.from("orders").update({ status }).eq("public_id", publicId);
+  const { error } = await gate.supabase.from("oak_orders").update({ status }).eq("public_id", publicId);
   if (error) return { error: error.message };
   revalidatePath("/admin/orders");
   return { error: null };

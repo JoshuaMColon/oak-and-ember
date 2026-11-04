@@ -7,10 +7,10 @@ import type { CatalogQuery, Category, Order, OrderStatus, Product, Review } from
 
 const PRODUCT_SELECT = `
   id, slug, name, description, details, price_cents, featured, bestseller, created_at, keywords,
-  category:categories!inner(slug, name),
-  images:product_images(id, url, alt, credit, sort_order),
-  variants:product_variants(id, sku, finish, material, color, color_hex, price_cents, stock),
-  reviews(id, author_name, rating, title, body, created_at)
+  category:oak_categories!inner(slug, name),
+  images:oak_product_images(id, url, alt, credit, sort_order),
+  variants:oak_product_variants(id, sku, finish, material, color, color_hex, price_cents, stock),
+  reviews:oak_reviews(id, author_name, rating, title, body, created_at)
 `;
 
 export async function listProducts(): Promise<Product[]> {
@@ -19,7 +19,7 @@ export async function listProducts(): Promise<Product[]> {
     const supabase = await createServerSupabase();
     if (!supabase) return localProducts;
     const { data, error } = await supabase
-      .from("products")
+      .from("oak_products")
       .select(PRODUCT_SELECT)
       .order("name");
     if (error || !data) return localProducts;
@@ -34,7 +34,7 @@ export async function listCategories(): Promise<Category[]> {
   try {
     const supabase = await createServerSupabase();
     if (!supabase) return categories;
-    const { data, error } = await supabase.from("categories").select("id, slug, name, description, image").order("name");
+    const { data, error } = await supabase.from("oak_categories").select("id, slug, name, description, image").order("name");
     if (error || !data) return categories;
     return data as Category[];
   } catch {
@@ -54,7 +54,7 @@ export async function getCatalog(query: CatalogQuery) {
       return { ...queryCatalog(localProducts, query), source: "local" as const };
     }
     let request = supabase
-      .from("products")
+      .from("oak_products")
       .select(filteredSelect(query), { count: "exact" })
       .textSearch("fts", query.q, { type: "websearch", config: "english" });
 
@@ -92,14 +92,14 @@ export async function getCatalog(query: CatalogQuery) {
 
 function filteredSelect(query: CatalogQuery) {
   const variants = query.material || query.color
-    ? "variants:product_variants!inner(id, sku, finish, material, color, color_hex, price_cents, stock)"
-    : "variants:product_variants(id, sku, finish, material, color, color_hex, price_cents, stock)";
+    ? "variants:oak_product_variants!inner(id, sku, finish, material, color, color_hex, price_cents, stock)"
+    : "variants:oak_product_variants(id, sku, finish, material, color, color_hex, price_cents, stock)";
   return `
     id, slug, name, description, details, price_cents, featured, bestseller, created_at, keywords,
-    category:categories!inner(slug, name),
-    images:product_images(id, url, alt, credit, sort_order),
+    category:oak_categories!inner(slug, name),
+    images:oak_product_images(id, url, alt, credit, sort_order),
     ${variants},
-    reviews(id, author_name, rating, title, body, created_at)
+    reviews:oak_reviews(id, author_name, rating, title, body, created_at)
   `;
 }
 
@@ -119,8 +119,8 @@ export async function listOrdersForAdmin(): Promise<Order[]> {
     const supabase = await createServerSupabase();
     if (!supabase) return sampleOrders;
     const { data, error } = await supabase
-      .from("orders")
-      .select("public_id, email, shipping_name, shipping_address, status, subtotal_cents, shipping_cents, total_cents, created_at, order_items(id, variant_id, product_name, variant_label, unit_price_cents, quantity)")
+      .from("oak_orders")
+      .select("public_id, email, shipping_name, shipping_address, status, subtotal_cents, shipping_cents, total_cents, created_at, order_items:oak_order_items(id, variant_id, product_name, variant_label, unit_price_cents, quantity)")
       .order("created_at", { ascending: false });
     if (error || !data) return sampleOrders;
     return data.map(mapOrder);
@@ -134,8 +134,8 @@ export async function listOrdersForUser(userId: string): Promise<Order[]> {
   const supabase = await createServerSupabase();
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from("orders")
-    .select("public_id, email, shipping_name, shipping_address, status, subtotal_cents, shipping_cents, total_cents, created_at, order_items(id, variant_id, product_name, variant_label, unit_price_cents, quantity)")
+    .from("oak_orders")
+    .select("public_id, email, shipping_name, shipping_address, status, subtotal_cents, shipping_cents, total_cents, created_at, order_items:oak_order_items(id, variant_id, product_name, variant_label, unit_price_cents, quantity)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error || !data) return [];
