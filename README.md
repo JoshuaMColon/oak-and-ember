@@ -54,7 +54,7 @@ flowchart LR
 
 Without keys, catalog queries run in the app against the seed in `lib/data/catalog.ts`. With `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, search uses a Postgres full-text column and the other reads and writes go through row-level security.
 
-Roles live on `public.profiles`, not in user-editable metadata. Customers can read their own orders. Catalog writes and order status changes require `role = 'admin'`. A trigger blocks a customer from promoting themselves. The Stripe webhook uses the service role key, which never reaches the browser.
+Roles live on `oak.profiles`, not in user-editable metadata. Customers can read their own orders. Catalog writes and order status changes require `role = 'admin'`. A trigger blocks a customer from promoting themselves. The Stripe webhook uses the service role key, which never reaches the browser.
 
 ## Local setup
 
@@ -91,12 +91,16 @@ Copy `.env.example` to `.env.local`. Leave values blank to stay in fallback mode
 5. Create an account in the shop, then promote it:
 
 ```sql
-update public.profiles
+update oak.profiles
 set role = 'admin'
-where id = '<user uuid from auth.users>';
+where id = (select id from auth.users where email = '<your email>');
 ```
 
-The `product-images` bucket is public to read. Only admins can upload. Authorization uses `private.is_admin()`, which reads `profiles.role`.
+The `oak-products` bucket is public to read. Only admins can upload. Authorization uses `oak.is_admin()`, which reads `oak.profiles.role`.
+
+### Shared project layout
+
+All tables, functions, and triggers live in the `oak` schema so the store can share a Supabase project with other apps. The Data API only exposes `public`, so each table is reached through a `security_invoker` view named `public.oak_<table>`; RLS on the `oak` tables still applies. There is no `auth.users` trigger: the profile row is created on the first signed-in visit (`lib/access.ts`). Sign in once before promoting yourself to admin.
 
 Regenerate the seed after catalog edits with `npm run seed:sql`.
 

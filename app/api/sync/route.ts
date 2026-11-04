@@ -9,8 +9,8 @@ export async function GET() {
   const supabase = await createServerSupabase();
   if (!supabase) return NextResponse.json({ userId: null, cart: null, wishlist: null });
 
-  const { data: cart } = await supabase.from("carts").select("id, cart_items(variant_id, quantity)").eq("user_id", user.id).maybeSingle();
-  const { data: wishes } = await supabase.from("wishlists").select("product_id").eq("user_id", user.id);
+  const { data: cart } = await supabase.from("oak_carts").select("id, cart_items:oak_cart_items(variant_id, quantity)").eq("user_id", user.id).maybeSingle();
+  const { data: wishes } = await supabase.from("oak_wishlists").select("product_id").eq("user_id", user.id);
   const lines: CartLine[] = (cart?.cart_items ?? []).map((item: { variant_id: string; quantity: number }) => ({
     variantId: item.variant_id,
     quantity: item.quantity,
@@ -34,23 +34,23 @@ export async function POST(request: Request) {
   } | null;
   if (!body) return NextResponse.json({ error: "Invalid sync." }, { status: 400 });
 
-  const { data: existing } = await supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle();
+  const { data: existing } = await supabase.from("oak_carts").select("id").eq("user_id", user.id).maybeSingle();
   const cartId = existing?.id
-    ?? (await supabase.from("carts").insert({ user_id: user.id }).select("id").single()).data?.id;
+    ?? (await supabase.from("oak_carts").insert({ user_id: user.id }).select("id").single()).data?.id;
   if (cartId) {
-    await supabase.from("cart_items").delete().eq("cart_id", cartId);
+    await supabase.from("oak_cart_items").delete().eq("cart_id", cartId);
     const lines = (body.cart ?? []).filter((line) => line.variantId && line.quantity > 0);
     if (lines.length) {
-      await supabase.from("cart_items").insert(
+      await supabase.from("oak_cart_items").insert(
         lines.map((line) => ({ cart_id: cartId, variant_id: line.variantId, quantity: line.quantity })),
       );
     }
   }
 
-  await supabase.from("wishlists").delete().eq("user_id", user.id);
+  await supabase.from("oak_wishlists").delete().eq("user_id", user.id);
   const wishes = [...new Set(body.wishlist ?? [])];
   if (wishes.length) {
-    await supabase.from("wishlists").insert(wishes.map((productId) => ({ user_id: user.id, product_id: productId })));
+    await supabase.from("oak_wishlists").insert(wishes.map((productId) => ({ user_id: user.id, product_id: productId })));
   }
 
   return NextResponse.json({ mode: "saved" });
