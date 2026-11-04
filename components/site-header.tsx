@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { categories } from "@/lib/data/catalog";
 import { cn } from "@/lib/cn";
@@ -37,6 +38,13 @@ export function SiteHeader() {
   }, [open]);
 
   const light = home && !open;
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const close = () => setOpenPath(null);
+  const mobileLink = "rounded-xl px-2 transition hover:bg-surface active:scale-[0.98] active:bg-surface";
 
   return (
     <header
@@ -47,10 +55,11 @@ export function SiteHeader() {
           : "sticky top-0 border-line bg-background/90 text-ink backdrop-blur-md",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-[4.5rem] sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:h-[4.5rem] sm:px-6">
         <Link
           href="/"
-          className="shrink-0 rounded-full font-serif text-xl tracking-tight transition hover:opacity-80"
+          title="Oak & Ember home"
+          className="min-w-0 shrink truncate rounded-full font-serif text-lg tracking-tight transition hover:opacity-80 active:opacity-60 sm:text-xl"
         >
           Oak <span className="italic">&amp; Ember</span>
         </Link>
@@ -98,11 +107,13 @@ export function SiteHeader() {
           />
         </form>
 
-        <div className={cn("flex items-center gap-1", "ml-auto xl:ml-2")}>
-          <ThemeToggle light={light} />
-          <IconLink href="/account/wishlist" label="Wishlist" light={light}>
-            <HeartIcon />
-          </IconLink>
+        <div className={cn("flex shrink-0 items-center gap-0.5 sm:gap-1", "ml-auto xl:ml-2")}>
+          <span className="hidden sm:contents">
+            <ThemeToggle light={light} />
+            <IconLink href="/account/wishlist" label="Wishlist" light={light}>
+              <HeartIcon />
+            </IconLink>
+          </span>
           <IconLink href="/account" label="Account" light={light}>
             <UserIcon />
           </IconLink>
@@ -131,13 +142,18 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {open ? (
+      {open && mounted ? createPortal(
         <div
           id={menuId}
-          className="fixed inset-0 z-50 flex flex-col bg-background text-ink lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site menu"
+          className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overscroll-contain bg-background text-ink lg:hidden"
         >
-          <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
             <p className="font-serif text-xl">Oak &amp; Ember</p>
+            <div className="flex items-center gap-1">
+            <ThemeToggle light={false} />
             <button
               ref={closeRef}
               type="button"
@@ -148,6 +164,7 @@ export function SiteHeader() {
               <span className="sr-only">Close menu</span>
               <CloseIcon />
             </button>
+            </div>
           </div>
           <form action="/catalog" role="search" className="px-4">
             <label htmlFor="mobile-search" className="sr-only">
@@ -157,30 +174,35 @@ export function SiteHeader() {
               id="mobile-search"
               name="q"
               placeholder="Search pieces"
-              className="h-12 w-full rounded-full border border-line bg-surface px-4"
+              className="mt-4 h-12 w-full rounded-full border border-line bg-surface px-4 text-ink"
             />
           </form>
           <nav className="mt-6 flex flex-col gap-1 px-4" aria-label="Mobile">
-            <Link href="/catalog" className="rounded-xl px-2 py-3 font-serif text-3xl hover:bg-surface">
+            <Link href="/catalog" onClick={close} className={cn(mobileLink, "py-3 font-serif text-3xl")}>
               Shop
             </Link>
             {categories.map((category) => (
               <Link
                 key={category.slug}
                 href={`/catalog/${category.slug}`}
-                className="rounded-xl px-2 py-2 text-lg hover:bg-surface"
+                onClick={close}
+                className={cn(mobileLink, "py-2 text-lg")}
               >
                 {category.name}
               </Link>
             ))}
-            <Link href="/about" className="rounded-xl px-2 py-3 font-serif text-3xl hover:bg-surface">
+            <Link href="/about" onClick={close} className={cn(mobileLink, "py-3 font-serif text-3xl")}>
               Our story
             </Link>
-            <Link href="/demo" className="mt-4 rounded-full bg-ember-deep px-4 py-3 text-center text-white hover:bg-[#722f10]">
+            <Link href="/account/wishlist" onClick={close} className={cn(mobileLink, "py-2 text-lg sm:hidden")}>
+              Wishlist
+            </Link>
+            <Link href="/demo" onClick={close} className="my-4 rounded-full bg-ember-deep px-4 py-3 text-center text-white transition hover:bg-[#722f10] active:scale-[0.98]">
               Try the demo
             </Link>
           </nav>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </header>
   );
