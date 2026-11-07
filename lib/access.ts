@@ -5,8 +5,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 type ServerSupabase = NonNullable<Awaited<ReturnType<typeof createServerSupabase>>>;
 type AuthUser = { id: string; user_metadata?: Record<string, unknown> | null };
 
-// Oak & Ember shares a Supabase project with other apps, so there is no
-// auth.users trigger. The customer profile is created on first signed-in visit.
+// The shop shares a Supabase project, so I don't install an auth.users
+// trigger that would fire for every other app. The profile row is created
+// here, on the first request that has a real session.
 async function loadProfile(supabase: ServerSupabase, user: AuthUser) {
   const { data: profile } = await supabase
     .from("oak_profiles")
@@ -14,6 +15,10 @@ async function loadProfile(supabase: ServerSupabase, user: AuthUser) {
     .eq("id", user.id)
     .maybeSingle();
   if (profile) return profile;
+  // full_name is only a hint copied out of sign-up metadata. Role is left
+  // off the insert so the column default ('customer') applies. The insert
+  // policy also refuses anything but role = 'customer', and a trigger
+  // blocks a later update that tries to self-promote.
   const fullName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "";
   const { data: created } = await supabase
     .from("oak_profiles")
@@ -25,6 +30,11 @@ async function loadProfile(supabase: ServerSupabase, user: AuthUser) {
 
 export type Access = "admin" | "demo" | "guest";
 
+// admin: signed-in profile whose role was set to 'admin' in SQL.
+// demo:  the oak_demo cookie. The studio renders, but writes stay in this browser.
+// guest: everyone else, including a signed-in customer.
+// A real admin wins over the demo cookie. I use getUser() so Supabase
+// checks the token, instead of decoding the session cookie myself.
 export async function getAccess(): Promise<Access> {
   const cookieStore = await cookies();
   const demo = cookieStore.get("oak_demo")?.value === "1";
@@ -39,6 +49,9 @@ export async function getAccess(): Promise<Access> {
   return demo ? "demo" : "guest";
 }
 
+// Same lookup, shaped for pages that need an email and a display name.
+// Null when Supabase is off or nobody is signed in, so the account page
+// can render the guest state without throwing.
 export async function getSessionUser() {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createServerSupabase();

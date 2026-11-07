@@ -15,6 +15,9 @@ export default function AccountPage() {
 }
 
 async function AccountBody() {
+  // Orders are loaded with the session user id, not an id from the query
+  // string. A signed-out visit gets the guest panel; demo orders from
+  // this browser are merged in on the client.
   const user = await getSessionUser();
   const orders = user ? await listOrdersForUser(user.id) : [];
   return (
