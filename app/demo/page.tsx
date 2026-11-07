@@ -6,6 +6,10 @@ export const metadata = { title: "Try the demo" };
 
 async function enterDemo() {
   "use server";
+  // Two weeks, SameSite=lax, not httpOnly. I don't treat this as a
+  // secret. Setting the cookie only opens the studio UI, and every
+  // write in that mode goes to localStorage. A customer who sets it
+  // by hand gets the same sandbox, not the database.
   const jar = await cookies();
   jar.set("oak_demo", "1", {
     path: "/",

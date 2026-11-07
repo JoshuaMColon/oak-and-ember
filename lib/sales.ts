@@ -1,5 +1,8 @@
 import type { Order, OrderStatus, Product } from "@/lib/types";
 
+// Pending and cancelled stay out of revenue. Shipped and delivered
+// were paid, so they still count. The overview and the chart both
+// use this, in demo mode and against real orders.
 const COUNTED: OrderStatus[] = ["paid", "shipped", "delivered"];
 
 export function countedOrders(orders: Order[]) {

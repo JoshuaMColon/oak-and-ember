@@ -16,6 +16,10 @@ import { formatPrice } from "@/lib/money";
 import { lowStock, salesByMonth, salesSummary } from "@/lib/sales";
 import { CATEGORY_SLUGS, type Category, type Order, type OrderStatus, type Product } from "@/lib/types";
 
+// mode "demo" never calls the server actions. Stock, products, and
+// order status are written to these two keys and read back over the
+// seeded props. The public catalog does not look at these keys, so a
+// demo edit cannot change what a shopper sees.
 const PRODUCT_KEY = "oak-ember-demo-catalog";
 const ORDER_KEY = "oak-ember-demo-orders";
 const STATUSES: OrderStatus[] = ["pending", "paid", "shipped", "delivered", "cancelled"];
@@ -29,6 +33,8 @@ export function AdminOverview({
   orders: Order[];
   mode: "demo" | "admin";
 }) {
+  // Until the demo browser has saved something, stored* is null and I
+  // show the seeded orders and products the page passed in.
   const storedOrders = useLocal<Order[] | null>(ORDER_KEY, null);
   const storedProducts = useLocal<Product[] | null>(PRODUCT_KEY, null);
   const liveOrders = mode === "demo" && storedOrders ? storedOrders : orders;
@@ -75,6 +81,8 @@ export function AdminProducts({ products, mode }: { products: Product[]; mode: "
 
   async function changeStock(variantId: string, stock: number) {
     if (mode === "demo") {
+      // Local only. updateVariantStock is the admin path and would
+      // fail the role check for a demo session anyway.
       const next = items.map((product) => ({
         ...product,
         variants: product.variants.map((variant) =>
@@ -237,6 +245,8 @@ export function ProductEditor({
     }
     setPending(true);
     if (mode === "demo") {
+      // Same split as stock. The public shop keeps reading the seed
+      // or Supabase; this write never leaves the browser.
       const base = readLocal<Product[] | null>(PRODUCT_KEY, null) ?? catalog;
       const nextProduct = toProduct(input, product);
       const next = product
@@ -336,6 +346,8 @@ export function ProductEditor({
   );
 }
 
+// Only mounted for a real admin. The demo form keeps the URL field
+// so a guest can still point at an image without Storage.
 function ImageUpload() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
