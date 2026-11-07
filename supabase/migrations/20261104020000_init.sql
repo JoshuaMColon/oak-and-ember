@@ -1,6 +1,15 @@
 -- Oak & Ember catalog, carts, orders, reviews, and admin role.
 -- Lives in the oak schema (shared Supabase project). Role checks read oak.profiles,
 -- never user-editable auth user_metadata.
+--
+-- The Data API on this project only exposes public, so the app talks to the
+-- public.oak_* views at the bottom of this file. They are security_invoker:
+-- the caller's RLS still runs against the oak tables. I kept the tables out
+-- of public so this schema can sit next to the other apps on the project.
+--
+-- There is no auth.users trigger. lib/access.ts inserts the profile on the
+-- first signed-in request. Promoting someone is a manual update of
+-- oak.profiles.role; the trigger below stops a customer from doing that.
 
 create schema if not exists oak;
 revoke all on schema oak from public;
@@ -103,6 +112,7 @@ create table oak.orders (
   user_id uuid references auth.users (id) on delete set null,
   email text not null,
   status oak.order_status not null default 'pending',
+  -- Webhook idempotency key. A replayed checkout.session.completed can't insert a second order.
   stripe_session_id text unique,
   subtotal_cents integer not null check (subtotal_cents >= 0),
   shipping_cents integer not null default 0 check (shipping_cents >= 0),
@@ -131,6 +141,9 @@ create table oak.wishlists (
   primary key (user_id, product_id)
 );
 
+-- security definer so a policy can ask "is this user an admin?" without
+-- letting that user read every profile. search_path is empty so the body
+-- can't be pointed at a function someone created in public.
 create or replace function oak.is_admin()
 returns boolean
 language sql
@@ -149,6 +162,9 @@ $$;
 revoke all on function oak.is_admin() from public;
 grant execute on function oak.is_admin() to authenticated, service_role;
 
+-- Runs before every profile update. A customer can edit their own name
+-- (the update policy allows that) but not their role. service_role is
+-- exempt so a SQL promotion from the dashboard still works.
 create or replace function oak.prevent_role_escalation()
 returns trigger
 language plpgsql
@@ -264,6 +280,10 @@ create policy "own cart items" on oak.cart_items
     )
   );
 
+-- Customers can read their own orders. They cannot insert them: there
+-- is no insert policy and no insert grant for authenticated. The Stripe
+-- webhook uses the service role, which bypasses RLS, and that is the
+-- only path that marks a checkout paid.
 create policy "read own orders" on oak.orders
   for select to authenticated
   using (user_id = (select auth.uid()) or oak.is_admin());
@@ -322,10 +342,13 @@ create policy "Oak & Ember: admins delete product images"
   using (bucket_id = 'oak-products' and oak.is_admin());
 
 -- Service role (Stripe webhook) bypasses RLS but still needs grants.
+-- I don't grant it to anon or authenticated.
 grant all on all tables in schema oak to service_role;
 
 -- Data API: only public is exposed on this shared project, so each table gets a
 -- security_invoker view named public.oak_<table> (same pattern as xplan_* and weather_*).
+-- security_invoker = true means the view runs as the caller. A definer
+-- view here would skip RLS and publish every order to the anon key.
 create view public.oak_profiles with (security_invoker = true) as select * from oak.profiles;
 create view public.oak_categories with (security_invoker = true) as select * from oak.categories;
 create view public.oak_products with (security_invoker = true) as select * from oak.products;

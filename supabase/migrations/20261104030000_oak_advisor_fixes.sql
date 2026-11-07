@@ -1,6 +1,12 @@
 -- Advisor fixes: cover foreign keys, and keep anonymous-auth sessions (enabled
 -- project-wide for other apps on this shared project) out of Oak & Ember writes
 -- and private reads. Catalog reads stay public.
+--
+-- These are restrictive policies, so they AND with the permissive policies
+-- from the init migration.
+-- `anon` (no session, public catalog) is a different role and is not covered
+-- here. `authenticated` with is_anonymous = true is a signed-in anonymous
+-- user from another app, and I don't want that JWT writing oak rows.
 create index if not exists cart_items_variant_idx on oak.cart_items (variant_id);
 create index if not exists order_items_order_idx on oak.order_items (order_id);
 create index if not exists order_items_variant_idx on oak.order_items (variant_id);

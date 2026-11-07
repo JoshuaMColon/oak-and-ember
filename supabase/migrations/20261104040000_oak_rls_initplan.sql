@@ -1,5 +1,7 @@
 -- Advisor fix (auth_rls_initplan): evaluate auth.jwt() once per statement
--- in the restrictive "no anonymous …" policies on oak tables.
+-- in the restrictive "no anonymous …" policies on oak tables. Wrapping the
+-- call in a scalar subquery is what makes the planner treat it as an
+-- initPlan instead of calling it again for every row.
 do $$
 declare
   r record;

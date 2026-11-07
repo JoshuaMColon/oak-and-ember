@@ -1,3 +1,7 @@
+// Shared shapes for the shop. Prices are integer cents so display,
+// shipping, and Stripe all use the same unit. These types cover the
+// seed catalog, rows mapped out of Supabase, and demo orders kept in
+// localStorage. There is no separate "database product" type in the UI.
 export const CATEGORY_SLUGS = [
   "sofas",
   "chairs",

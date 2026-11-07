@@ -1,3 +1,7 @@
+// Presence checks, not clients. A blank env file should still boot the
+// shop: seeded catalog, local cart, simulated checkout. Supabase counts
+// as configured only when both the URL and the anon key are set, because
+// either one alone cannot call the Data API.
 export function isSupabaseConfigured() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
