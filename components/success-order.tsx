@@ -7,6 +7,8 @@ import type { Order } from "@/lib/types";
 
 const emptyOrders: Order[] = [];
 
+// Demo confirmation. The order was returned by /api/checkout and
+// written to localStorage by the form. It is not in Postgres.
 export function SuccessOrder({ orderId }: { orderId: string }) {
   const orders = useLocal<Order[]>("oak-ember-orders", emptyOrders);
   const order = orders.find((item) => item.id === orderId) ?? null;

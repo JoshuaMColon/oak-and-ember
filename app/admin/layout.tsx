@@ -20,6 +20,9 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
 }
 
 async function AdminFrame({ children }: { children: ReactNode }) {
+  // The proxy only checks "signed in, or holding the demo cookie".
+  // This is the role gate. A customer with no demo cookie is a guest
+  // and gets sent to log in. Demo is allowed through and bannered.
   const access = await getAccess();
   if (access === "guest") redirect("/login?next=/admin");
 

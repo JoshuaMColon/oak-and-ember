@@ -9,6 +9,8 @@ const emptyOrders: Order[] = [];
 
 export function OrderDetail({ orderId, serverOrder }: { orderId: string; serverOrder: Order | null }) {
   const localOrders = useLocal<Order[]>("oak-ember-orders", emptyOrders);
+  // The page already filtered server orders to this user. The local
+  // fallback is only for a demo checkout that never hit Postgres.
   const order = serverOrder ?? localOrders.find((item) => item.id === orderId) ?? null;
 
   if (!order) {

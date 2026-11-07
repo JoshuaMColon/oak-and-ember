@@ -5,6 +5,11 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { CatalogQuery, Category, Order, OrderStatus, Product, Review } from "@/lib/types";
 
+// Reads go through the public.oak_* views. Those views are
+// security_invoker, so RLS on the oak tables still applies and the
+// anon key is enough for the catalog. Any failure, including a
+// project that isn't configured, falls back to the seed in lib/data
+// so the shop still renders.
 const PRODUCT_SELECT = `
   id, slug, name, description, details, price_cents, featured, bestseller, created_at, keywords,
   category:oak_categories!inner(slug, name),
@@ -42,6 +47,10 @@ export async function listCategories(): Promise<Category[]> {
   }
 }
 
+// Text search is the query I push to Postgres, against the generated
+// fts column. Filters and sorts with no search term load the catalog
+// and run through queryCatalog. One filter implementation, and the
+// catalog is small enough that the extra rows don't matter.
 export async function getCatalog(query: CatalogQuery) {
   if (!isSupabaseConfigured() || !query.q) {
     const all = await listProducts();
@@ -90,6 +99,9 @@ export async function getCatalog(query: CatalogQuery) {
   }
 }
 
+// !inner on variants when a material or color is set. A normal embed
+// would still return the product with an empty variant list. Inner
+// drops products that have no matching finish.
 function filteredSelect(query: CatalogQuery) {
   const variants = query.material || query.color
     ? "variants:oak_product_variants!inner(id, sku, finish, material, color, color_hex, price_cents, stock)"
@@ -113,6 +125,10 @@ export async function getRelated(product: Product) {
   return relatedProducts(all, product);
 }
 
+// The caller's session, not the service role. RLS returns every order
+// for an admin and only that user's orders otherwise. A query error
+// falls back to the sample orders so the studio still opens. An empty
+// list does not, because empty is a real answer.
 export async function listOrdersForAdmin(): Promise<Order[]> {
   if (!isSupabaseConfigured()) return sampleOrders;
   try {
@@ -129,6 +145,10 @@ export async function listOrdersForAdmin(): Promise<Order[]> {
   }
 }
 
+// userId comes from getSessionUser(), and the policy is "own orders
+// or admin". The eq() is the app-level filter; RLS is what stops a
+// tampered client from reading someone else's rows. No fallback to
+// sample orders here — an account page should not show fake purchases.
 export async function listOrdersForUser(userId: string): Promise<Order[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createServerSupabase();

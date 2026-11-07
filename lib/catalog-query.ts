@@ -1,3 +1,7 @@
+// In-process catalog used when Supabase is off, and for every browse
+// that isn't a text search. Postgres search (repository.getCatalog)
+// is the other path. Both return the same page shape so the catalog
+// view doesn't care which one ran.
 import type { CatalogQuery, Product, SortKey } from "@/lib/types";
 
 const SORTS: SortKey[] = [

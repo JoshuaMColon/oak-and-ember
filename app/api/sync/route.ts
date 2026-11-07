@@ -3,6 +3,10 @@ import { getSessionUser } from "@/lib/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { CartLine } from "@/lib/types";
 
+// Cart sync for a signed-in browser. The user id is taken from the
+// session, never from the body, so one account can't write another's
+// cart. A signed-out caller gets an empty payload and the client
+// stays on localStorage.
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ userId: null, cart: null, wishlist: null });
@@ -22,6 +26,9 @@ export async function GET() {
   });
 }
 
+// Replace, don't diff. The browser just merged and is the source of
+// truth for this save. Delete-then-insert keeps a removed line from
+// lingering because I forgot a case in an upsert.
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ mode: "local" });

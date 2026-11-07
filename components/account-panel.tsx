@@ -18,6 +18,8 @@ export function AccountPanel({
 }) {
   const localOrders = useLocal<Order[]>("oak-ember-orders", emptyOrders);
 
+  // Server orders win when a public id exists in both places, so a demo
+  // checkout and a later real order don't show up as two rows.
   const seen = new Set(orders.map((order) => order.id));
   const combined = [...orders, ...localOrders.filter((order) => !seen.has(order.id))];
 

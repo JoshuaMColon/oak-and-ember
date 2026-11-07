@@ -23,6 +23,11 @@ async function SuccessBody({
   const orderId = typeof params.order === "string" ? params.order : "";
   const sessionId = typeof params.session_id === "string" ? params.session_id : "";
 
+  // Demo success is ?order= and is read from localStorage. Stripe
+  // success is ?session_id=. I retrieve the session here only to show
+  // payment_status. The order row is written by the webhook, so
+  // refreshing this page cannot create a second order.
+
   if (orderId) return <SuccessOrder orderId={orderId} />;
 
   if (sessionId && isStripeConfigured()) {

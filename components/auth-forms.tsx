@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 
+// Sign-in uses the anon key in the browser. @supabase/ssr writes the
+// session cookie; pages still call getUser() on the server before they
+// trust it. With no keys I stop and say so, instead of pretending a
+// local account exists.
 export function LoginForm({ next, configured }: { next: string; configured: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -28,6 +32,10 @@ export function LoginForm({ next, configured }: { next: string; configured: bool
       setError(authError.message);
       return;
     }
+    // refresh() rerenders the server layout against the new cookie.
+    // next is the path the proxy stored. Anything that is not a path
+    // falls back to /account. The callback route is the strict check:
+    // it also rejects a protocol-relative "//" URL.
     router.push(next.startsWith("/") ? next : "/account");
     router.refresh();
   }
@@ -50,6 +58,9 @@ export function LoginForm({ next, configured }: { next: string; configured: bool
   );
 }
 
+// full_name is stored in user_metadata as a hint for loadProfile. The
+// role is not in this payload. If email confirmation is on, signUp
+// returns no session and I ask them to confirm before logging in.
 export function SignupForm({ configured }: { configured: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");

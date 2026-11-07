@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 
+// Supabase sends the browser here with a one-time code after email
+// confirmation. I exchange it for a session cookie on the server.
+// next has to be a same-origin path. Rejecting "//" blocks a
+// protocol-relative redirect to another host.
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

@@ -30,6 +30,11 @@ export interface ProductInput {
   variants: VariantInput[];
 }
 
+// Every mutation starts here. getAccess() has to come back "admin".
+// The demo cookie is not enough, and a customer session is not enough.
+// The client is the anon key plus that admin's cookies, so
+// oak.is_admin() in RLS is a second check. I don't use the service
+// role for catalog edits.
 async function adminClient() {
   const access = await getAccess();
   if (access !== "admin") return { error: "Only an admin can change the catalog." as const, supabase: null };
@@ -44,6 +49,10 @@ export async function saveProduct(input: ProductInput) {
   const supabase = gate.supabase;
   const { data: category } = await supabase.from("oak_categories").select("id").eq("slug", input.category).maybeSingle();
   if (!category) return { error: "Unknown category." };
+  // price_cents on the product is the cheapest finish, which is what
+  // the catalog sorts and filters on. Each variant keeps its own price.
+  // keywords feed the generated fts column: name and description are
+  // already in it, finishes are not unless I write them here.
   const priceCents = Math.min(...input.variants.map((variant) => dollarsToCents(variant.price)));
   const keywords = [
     input.category,
@@ -73,6 +82,8 @@ export async function saveProduct(input: ProductInput) {
   if (!productId) return { error: "Could not save the product." };
 
   if (input.imageUrl) {
+    // One image field on the form. Replacing the set keeps a save from
+    // appending a gallery the editor can no longer see.
     await supabase.from("oak_product_images").delete().eq("product_id", productId);
     await supabase.from("oak_product_images").insert({
       product_id: productId,
@@ -83,6 +94,10 @@ export async function saveProduct(input: ProductInput) {
     });
   }
 
+  // Variants are replaced, not patched. The form edits one finish, and
+  // a diff against the old rows would be more code than the catalog
+  // needs. New ids are generated, so a cart line pointing at the old
+  // finish stops resolving after a save.
   await supabase.from("oak_product_variants").delete().eq("product_id", productId);
   const { error: variantError } = await supabase.from("oak_product_variants").insert(
     input.variants.map((variant, index) => ({
