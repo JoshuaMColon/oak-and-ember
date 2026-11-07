@@ -1,5 +1,9 @@
 "use client";
 
+// Cart, wishlist, and demo studio state. useSyncExternalStore so the
+// server render and the first client render both see the fallback.
+// Reading localStorage during render would mismatch hydration. The
+// storage listener picks up writes from another tab.
 import { useSyncExternalStore } from "react";
 
 const cache = new Map<string, unknown>();

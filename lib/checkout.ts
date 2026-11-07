@@ -1,6 +1,11 @@
 import { shippingCents } from "@/lib/money";
 import type { CartLine, Order, OrderItem, Product } from "@/lib/types";
 
+// Prices and stock come from the catalog loaded on the server. The
+// client only sends variant ids and quantities. A missing variant, a
+// non-integer quantity, or anything outside 1–12 fails the request
+// before Stripe is called.
+
 export interface ResolvedLine extends OrderItem {
   productSlug: string;
 }
@@ -99,6 +104,9 @@ export function buildOrder(input: {
   };
 }
 
+// Demo order ids, and the public id on a real order. Not a secret and
+// not coordinated across browsers. The webhook's idempotency key is
+// stripe_session_id, not this.
 export function publicOrderId() {
   const n = Math.floor(100000 + Math.random() * 900000);
   return `OE-${n}`;

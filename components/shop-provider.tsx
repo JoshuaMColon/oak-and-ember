@@ -24,6 +24,12 @@ interface ShopContextValue {
 }
 
 const ShopContext = createContext<ShopContextValue | null>(null);
+
+// The cart lives in localStorage so a guest can shop with no account
+// and no keys. After /api/sync reports a user, I merge the guest lines
+// into the database cart once (SYNC_KEY), then treat the server copy
+// as the source on later loads. A network failure leaves the guest cart
+// where it is.
 const emptyLines: CartLine[] = [];
 const emptyWish: string[] = [];
 
@@ -44,6 +50,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
           wishlist: string[] | null;
         };
         if (!data.userId || cancelled) return;
+        // Already merged for this user: take the server cart as-is.
+        // First time we see them in this browser: add the guest lines
+        // on top and POST the result back.
         const synced = localStorage.getItem(SYNC_KEY);
         const guestCart = readLocal<CartLine[]>(CART_KEY, emptyLines);
         const guestWish = readLocal<string[]>(WISH_KEY, emptyWish);
@@ -79,6 +88,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       count,
       message: "",
       add(variantId, quantity = 1, stock = 12) {
+        // Read localStorage at call time, not the React snapshot, so two
+        // quick clicks don't both start from the same render.
         const current = readLocal<CartLine[]>(CART_KEY, emptyLines);
         const existing = current.find((line) => line.variantId === variantId);
         const nextQty = clampQuantity((existing?.quantity ?? 0) + quantity, stock);

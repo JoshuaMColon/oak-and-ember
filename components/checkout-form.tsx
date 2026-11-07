@@ -7,6 +7,10 @@ import { findVariant, useShop } from "@/components/shop-provider";
 import { formatPrice, shippingCents } from "@/lib/money";
 import type { Order, Product } from "@/lib/types";
 
+// Posts variant ids and quantities. The server prices them. A JSON
+// order is the demo path: I keep it on this device and clear the cart.
+// A url is Stripe's hosted page. I leave the cart in place on that
+// path so a cancel back to /cart still has the lines.
 export function CheckoutForm({
   products,
   mode,

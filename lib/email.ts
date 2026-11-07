@@ -1,6 +1,9 @@
 import { formatPrice } from "@/lib/money";
 import type { Order } from "@/lib/types";
 
+// Missing RESEND_API_KEY is a skip, not an error. Checkout and the
+// webhook both treat a thrown failure the same way: the order stands.
+// Name and address are escaped because they are interpolated into HTML.
 export async function sendOrderEmail(order: Order) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { skipped: true as const };

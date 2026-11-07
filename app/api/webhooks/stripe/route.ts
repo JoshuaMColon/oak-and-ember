@@ -6,6 +6,10 @@ import { publicOrderId } from "@/lib/checkout";
 import type { Order } from "@/lib/types";
 import type Stripe from "stripe";
 
+// Stripe calls this with no user session. I refuse to run without the
+// webhook secret (503, and nothing is invented), and I verify the
+// signature against the raw body before reading the event. A bad
+// signature is 400. Stripe will not keep delivering a tampered payload.
 export async function POST(request: Request) {
   if (!isStripeConfigured() || !process.env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Stripe webhook is not configured." }, { status: 503 });
@@ -29,8 +33,9 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const stored = await recordOrder(session);
     if (!stored) {
-      // Without the service role key the order cannot be written. Answer 503 so
-      // Stripe retries once the key is configured, instead of dropping the order.
+      // 503 so Stripe retries. That covers a missing service role key,
+      // and a unique-constraint race where the other delivery committed
+      // the order first. A 200 here would drop a paid checkout.
       return NextResponse.json({ error: "Order storage is not configured." }, { status: 503 });
     }
   }
@@ -39,6 +44,8 @@ export async function POST(request: Request) {
 }
 
 async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
+  // Service role, because a customer has no insert grant on oak.orders.
+  // Returning true means "ack the event". Returning false means "retry".
   const supabase = createServiceSupabase();
   if (!supabase) return false;
 
@@ -47,6 +54,8 @@ async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
     .select("id")
     .eq("stripe_session_id", session.id)
     .maybeSingle();
+  // Already recorded. Ack so Stripe stops, and skip the stock update
+  // so a retry can't decrement twice.
   if (existing) return true;
 
   const metadata = session.metadata ?? {};
@@ -59,8 +68,12 @@ async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
     })
     .filter((item) => item.variantId && item.quantity > 0);
 
+  // Nothing we can fulfill. Ack rather than retry forever on a session
+  // that arrived without an email or a line.
   if (!email || items.length === 0) return true;
 
+  // Price and name come from the variant row, not from metadata. The
+  // metadata list is only "which variant, how many".
   const { data: variants } = await supabase
     .from("oak_product_variants")
     .select("id, price_cents, finish, material, color, stock, product:oak_products(name)")
@@ -102,6 +115,9 @@ async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
     .select("id")
     .single();
 
+  // A unique violation on stripe_session_id lands here too. The other
+  // request owns the order; we return false, Stripe retries, and the
+  // lookup above acks it without touching stock.
   if (error || !order) return false;
 
   await supabase.from("oak_order_items").insert(
@@ -115,6 +131,10 @@ async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
     })),
   );
 
+  // Read-then-write. Checkout already rejected a line that was over
+  // stock, and this loop is the only writer that decrements. Two paid
+  // sessions for the last unit can still both pass; I accept that for
+  // this catalog rather than holding a reservation across Stripe.
   for (const line of lines) {
     await supabase
       .from("oak_product_variants")
@@ -145,7 +165,9 @@ async function recordOrder(session: Stripe.Checkout.Session): Promise<boolean> {
   try {
     await sendOrderEmail(confirmation);
   } catch {
-    // Email failure should not make Stripe retry the paid event forever.
+    // The order row is already committed. Failing the webhook here would
+    // make Stripe retry a paid event, and the retry would ack without
+    // sending the mail anyway.
   }
   return true;
 }
