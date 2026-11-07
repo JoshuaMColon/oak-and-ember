@@ -33,8 +33,9 @@ export function LoginForm({ next, configured }: { next: string; configured: bool
       return;
     }
     // refresh() rerenders the server layout against the new cookie.
-    // A path that doesn't start with "/" is dropped so the form can't
-    // be used as an open redirect.
+    // next is the path the proxy stored. Anything that is not a path
+    // falls back to /account. The callback route is the strict check:
+    // it also rejects a protocol-relative "//" URL.
     router.push(next.startsWith("/") ? next : "/account");
     router.refresh();
   }

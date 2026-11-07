@@ -342,7 +342,8 @@ create policy "Oak & Ember: admins delete product images"
   using (bucket_id = 'oak-products' and oak.is_admin());
 
 -- Service role (Stripe webhook) bypasses RLS but still needs grants.
--- I don't grant it to anon or authenticated.
+-- This ALL grant stays on service_role. anon and authenticated keep
+-- the narrower grants above.
 grant all on all tables in schema oak to service_role;
 
 -- Data API: only public is exposed on this shared project, so each table gets a

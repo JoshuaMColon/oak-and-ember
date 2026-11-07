@@ -125,9 +125,10 @@ export async function getRelated(product: Product) {
   return relatedProducts(all, product);
 }
 
-// The admin session, not the service role. RLS already limits this
-// select to role = 'admin'. On failure I show the sample orders so
-// the studio still has something to walk through.
+// The caller's session, not the service role. RLS returns every order
+// for an admin and only that user's orders otherwise. A query error
+// falls back to the sample orders so the studio still opens. An empty
+// list does not, because empty is a real answer.
 export async function listOrdersForAdmin(): Promise<Order[]> {
   if (!isSupabaseConfigured()) return sampleOrders;
   try {
